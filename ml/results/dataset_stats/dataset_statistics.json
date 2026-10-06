@@ -1,0 +1,41 @@
+[
+  {
+    "split": "train",
+    "images": 1224,
+    "pothole_boxes": 2567,
+    "images_with_potholes": 1224,
+    "images_without_potholes": 0,
+    "avg_boxes_per_image": 2.1,
+    "size_distribution": {
+      "small_lt_1pct": 1409,
+      "medium_1_4pct": 781,
+      "large_gt_4pct": 377
+    }
+  },
+  {
+    "split": "val",
+    "images": 153,
+    "pothole_boxes": 296,
+    "images_with_potholes": 153,
+    "images_without_potholes": 0,
+    "avg_boxes_per_image": 1.93,
+    "size_distribution": {
+      "small_lt_1pct": 142,
+      "medium_1_4pct": 102,
+      "large_gt_4pct": 52
+    }
+  },
+  {
+    "split": "test",
+    "images": 153,
+    "pothole_boxes": 324,
+    "images_with_potholes": 153,
+    "images_without_potholes": 0,
+    "avg_boxes_per_image": 2.12,
+    "size_distribution": {
+      "small_lt_1pct": 176,
+      "medium_1_4pct": 89,
+      "large_gt_4pct": 59
+    }
+  }
+]

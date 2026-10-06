@@ -1,0 +1,96 @@
+[
+  {
+    "image": "India_000105.jpg",
+    "pothole_count": 1,
+    "avg_confidence": 0.4015,
+    "inference_ms": 5328.5,
+    "detections": [
+      {
+        "box_index": 0,
+        "confidence": 0.4015,
+        "norm_area": 0.003605,
+        "severity_proxy": "Small"
+      }
+    ]
+  },
+  {
+    "image": "India_000173.jpg",
+    "pothole_count": 3,
+    "avg_confidence": 0.3245,
+    "inference_ms": 800.1,
+    "detections": [
+      {
+        "box_index": 0,
+        "confidence": 0.4291,
+        "norm_area": 0.002545,
+        "severity_proxy": "Small"
+      },
+      {
+        "box_index": 1,
+        "confidence": 0.2954,
+        "norm_area": 0.205334,
+        "severity_proxy": "Large"
+      },
+      {
+        "box_index": 2,
+        "confidence": 0.249,
+        "norm_area": 0.216807,
+        "severity_proxy": "Large"
+      }
+    ]
+  },
+  {
+    "image": "India_000402.jpg",
+    "pothole_count": 2,
+    "avg_confidence": 0.2614,
+    "inference_ms": 730.9,
+    "detections": [
+      {
+        "box_index": 0,
+        "confidence": 0.2812,
+        "norm_area": 0.031719,
+        "severity_proxy": "Medium"
+      },
+      {
+        "box_index": 1,
+        "confidence": 0.2415,
+        "norm_area": 0.141072,
+        "severity_proxy": "Large"
+      }
+    ]
+  },
+  {
+    "image": "India_000439.jpg",
+    "pothole_count": 2,
+    "avg_confidence": 0.3989,
+    "inference_ms": 764.6,
+    "detections": [
+      {
+        "box_index": 0,
+        "confidence": 0.4939,
+        "norm_area": 0.001031,
+        "severity_proxy": "Small"
+      },
+      {
+        "box_index": 1,
+        "confidence": 0.3039,
+        "norm_area": 0.005998,
+        "severity_proxy": "Small"
+      }
+    ]
+  },
+  {
+    "image": "India_000475.jpg",
+    "pothole_count": 1,
+    "avg_confidence": 0.3327,
+    "inference_ms": 768.8,
+    "detections": [
+      {
+        "box_index": 0,
+        "confidence": 0.3327,
+        "norm_area": 0.006506,
+        "severity_proxy": "Small"
+      }
+    ]
+  }
+]

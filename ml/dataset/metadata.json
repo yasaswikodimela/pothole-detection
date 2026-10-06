@@ -1,0 +1,25 @@
+{
+  "project": "PotholeGuard",
+  "dataset": "RDD2022",
+  "subset": "India",
+  "class": "D40",
+  "yolo_class_id": 0,
+  "train_ratio": 0.8,
+  "val_ratio": 0.1,
+  "test_ratio": 0.1,
+  "seed": 42,
+  "splits": {
+    "train": {
+      "images": 1224,
+      "pothole_boxes": 2567
+    },
+    "val": {
+      "images": 153,
+      "pothole_boxes": 296
+    },
+    "test": {
+      "images": 153,
+      "pothole_boxes": 324
+    }
+  }
+}

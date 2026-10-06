@@ -1,0 +1,15 @@
+{
+  "model": "ml\\models\\best.pt",
+  "split": "test",
+  "conf_thres": 0.25,
+  "iou_thres": 0.45,
+  "imgsz": 640,
+  "device": "cpu",
+  "metrics": {
+    "precision": 0.6789,
+    "recall": 0.2284,
+    "mAP50": 0.184,
+    "mAP50_95": 0.076
+  },
+  "note": "Precision, Recall and mAP are the standard object-detection metrics. mAP50-95 is the primary benchmark. 'Accuracy' is not used because background is not a class in object detection."
+}

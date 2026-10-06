@@ -1,0 +1,16 @@
+# PotholeGuard - YOLOv8 dataset configuration
+# Source: RDD2022, India subset, D40 (pothole) class only.
+
+path: C:/Users/yasas/Downloads/Pothole_detection/pothole-detection/ml/dataset
+train: images/train
+val:   images/val
+test:  images/test
+
+nc: 1
+
+names:
+  0: pothole
+
+# Notes:
+#   Class 0  = D40 (pothole) from RDD2022.
+#   No other road-damage classes are included in this project.

@@ -1,0 +1,4 @@
+split,images,pothole_boxes,images_with_potholes,avg_boxes_per_image
+train,1224,2567,1224,2.1
+val,153,296,153,1.93
+test,153,324,153,2.12
