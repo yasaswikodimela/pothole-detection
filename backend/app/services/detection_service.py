@@ -83,8 +83,13 @@ def _get_model():
 
     providers = ["CPUExecutionProvider"]
 
+    opts = ort.SessionOptions()
+    opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+    opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+
     _session = ort.InferenceSession(
         str(model_path),
+        sess_options=opts,
         providers=providers,
     )
 
@@ -296,25 +301,42 @@ def _decode_results(
 # Public API
 # ---------------------------------------------------------------------------
 
-def infer_image_bytes(
-    image_bytes: bytes,
-    conf_threshold: float = 0.25,
-    iou_threshold: float = 0.45,
-    imgsz: int = 640,
-    source: Source = Source.IMAGE,
-    device: str = "upload",
+def _preprocess_numpy_frame(
+    frame: np.ndarray,
+    imgsz: int = IMG_SIZE,
+) -> Tuple[np.ndarray, int, int]:
+    """
+    Directly preprocess a BGR/RGB numpy frame without JPEG encode/decode.
+    """
+    import cv2
+
+    orig_h, orig_w = frame.shape[:2]
+
+    # Convert BGR (OpenCV default) to RGB
+    if frame.ndim == 3 and frame.shape[2] == 3:
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    else:
+        rgb = frame
+
+    resized = cv2.resize(rgb, (imgsz, imgsz), interpolation=cv2.INTER_LINEAR)
+    arr = resized.astype(np.float32) / 255.0
+    arr = np.transpose(arr, (2, 0, 1))
+    arr = np.expand_dims(arr, axis=0)
+    arr = np.ascontiguousarray(arr)
+
+    return arr, orig_w, orig_h
+
+
+def _run_inference(
+    input_tensor: np.ndarray,
+    original_width: int,
+    original_height: int,
+    conf_threshold: float,
+    iou_threshold: float,
+    source: Source,
+    device: str,
 ) -> DetectionResult:
-
     session = _get_model()
-
-    pil_image = Image.open(
-        io.BytesIO(image_bytes)
-    ).convert("RGB")
-
-    original_width, original_height = pil_image.size
-
-    input_tensor = _preprocess_image(pil_image)
-
     input_name = session.get_inputs()[0].name
 
     t0 = time.perf_counter()
@@ -326,9 +348,7 @@ def infer_image_bytes(
         },
     )
 
-    inference_ms = (
-        time.perf_counter() - t0
-    ) * 1000
+    inference_ms = (time.perf_counter() - t0) * 1000
 
     output = outputs[0]
 
@@ -347,6 +367,33 @@ def infer_image_bytes(
     return result
 
 
+def infer_image_bytes(
+    image_bytes: bytes,
+    conf_threshold: float = 0.25,
+    iou_threshold: float = 0.45,
+    imgsz: int = 640,
+    source: Source = Source.IMAGE,
+    device: str = "upload",
+) -> DetectionResult:
+
+    pil_image = Image.open(
+        io.BytesIO(image_bytes)
+    ).convert("RGB")
+
+    original_width, original_height = pil_image.size
+    input_tensor = _preprocess_image(pil_image)
+
+    return _run_inference(
+        input_tensor=input_tensor,
+        original_width=original_width,
+        original_height=original_height,
+        conf_threshold=conf_threshold,
+        iou_threshold=iou_threshold,
+        source=source,
+        device=device,
+    )
+
+
 def infer_numpy_frame(
     frame: np.ndarray,
     conf_threshold: float = 0.25,
@@ -356,24 +403,16 @@ def infer_numpy_frame(
     device: str = "webcam",
 ) -> DetectionResult:
 
-    import cv2
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-    pil_image = Image.fromarray(rgb)
-
-    image_bytes = io.BytesIO()
-
-    pil_image.save(
-        image_bytes,
-        format="JPEG",
+    input_tensor, original_width, original_height = _preprocess_numpy_frame(
+        frame, imgsz=imgsz
     )
 
-    return infer_image_bytes(
-        image_bytes=image_bytes.getvalue(),
+    return _run_inference(
+        input_tensor=input_tensor,
+        original_width=original_width,
+        original_height=original_height,
         conf_threshold=conf_threshold,
         iou_threshold=iou_threshold,
-        imgsz=imgsz,
         source=source,
         device=device,
     )

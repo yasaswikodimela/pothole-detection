@@ -31,20 +31,33 @@ export const detectImage = (file, latitude = null, longitude = null, roadName = 
 }
 
 // ── Detection: webcam frame ───────────────────────────────
-export const detectFrame = (base64jpeg, latitude = null, longitude = null, roadName = null, confThreshold = 0.15, saveToDb = false) => {
+export const detectFrame = (
+  base64jpeg,
+  latitude = null,
+  longitude = null,
+  roadName = null,
+  confThreshold = 0.15,
+  saveToDb = false,
+  signal = null
+) => {
   const cleanBase64 = base64jpeg.includes(',') ? base64jpeg.split(',')[1] : base64jpeg
-  return api.post('/detect/frame', {
-    image_base64: cleanBase64,
-    latitude: latitude,
-    longitude: longitude,
-    road_name: roadName,
-    conf_threshold: confThreshold,
-    device: 'webcam',
-    save_to_db: saveToDb,
-  }).then(r => r.data)
+  return api.post(
+    '/detect/frame',
+    {
+      image_base64: cleanBase64,
+      latitude: latitude,
+      longitude: longitude,
+      road_name: roadName,
+      conf_threshold: confThreshold,
+      device: 'webcam',
+      save_to_db: saveToDb,
+    },
+    {
+      timeout: 45000, // explicit reasonable timeout for live frame inference
+      signal: signal || undefined,
+    }
+  ).then(r => r.data)
 }
-
-
 
 // ── Detection: video ──────────────────────────────────────
 export const detectVideo = (file, confThreshold = 0.15, frameSkip = 5, onUploadProgress = null) => {
@@ -55,7 +68,7 @@ export const detectVideo = (file, confThreshold = 0.15, frameSkip = 5, onUploadP
   return api.post('/detect/video', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress,
-    timeout: 300000, // 5 min for video
+    timeout: 600000, // 10 min safe timeout for video inference
   }).then(r => r.data)
 }
 

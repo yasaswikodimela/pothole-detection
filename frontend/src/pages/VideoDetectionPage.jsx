@@ -38,15 +38,22 @@ export default function VideoDetectionPage() {
   }
 
   const handleDetect = async () => {
-    if (!file) return
-    setLoading(true); setError(null)
+    if (!file || loading) return
+    setLoading(true); setError(null); setResult(null); setProgress(0)
     try {
       const data = await detectVideo(file, confThreshold, frameSkip, e => {
         if (e.total) setProgress(Math.round((e.loaded / e.total) * 100))
       })
       setResult(data)
     } catch (e) {
-      setError(e.response?.data?.detail || e.message)
+      console.error('Video detection error:', e)
+      let msg = e.response?.data?.detail || e.message
+      if (e.code === 'ECONNABORTED' || e.message?.toLowerCase().includes('timeout')) {
+        msg = 'Video processing timed out. Backend CPU inference took longer than expected. Try selecting a higher frame skip (e.g. 1 in 10) or uploading a shorter clip.'
+      } else if (!e.response) {
+        msg = 'Network error: could not reach backend server. Please verify backend status.'
+      }
+      setError(msg)
     } finally {
       setLoading(false)
     }
@@ -184,7 +191,12 @@ export default function VideoDetectionPage() {
               {loading && (
                 <div className="p-3 bg-blue-50/70 border border-blue-100 rounded-xl space-y-2">
                   <div className="flex items-center justify-between text-xs text-blue-800 font-medium">
-                    <span className="flex items-center gap-1.5"><Spinner size={13} /> Processing video on CPU…</span>
+                    <span className="flex items-center gap-1.5">
+                      <Spinner size={13} />
+                      {progress < 100
+                        ? `Uploading video (${progress}%)…`
+                        : 'Uploaded. Analysing frames on CPU (target ~15 frames)…'}
+                    </span>
                     <span>{progress}%</span>
                   </div>
                   <div className="w-full bg-blue-200/50 rounded-full h-1.5 overflow-hidden">
@@ -193,11 +205,16 @@ export default function VideoDetectionPage() {
                       style={{ width: `${progress}%` }}
                     />
                   </div>
+                  {progress === 100 && (
+                    <p className="text-[11px] text-blue-600">
+                      ONNX inference is running sequentially on sampled frames. Detections will update when finished.
+                    </p>
+                  )}
                 </div>
               )}
 
               <button
-                className="btn-primary w-full justify-center py-3 text-sm font-semibold shadow-sm"
+                className="btn-primary w-full justify-center py-3 text-sm font-semibold shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                 onClick={handleDetect}
                 disabled={loading}
               >
@@ -218,7 +235,18 @@ export default function VideoDetectionPage() {
               <>
                 <div className="card space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-slate-800">Analysis Summary</h3>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800">Analysis Summary</h3>
+                      <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-500">
+                        <span>Sampling: 1 in {result.effective_frame_skip || result.frame_skip} frames</span>
+                        {result.processing_time_ms && (
+                          <>
+                            <span>·</span>
+                            <span>Time: {(result.processing_time_ms / 1000).toFixed(1)}s</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                     <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 flex items-center gap-1">
                       <CheckCircle2 size={11} /> Complete
                     </span>

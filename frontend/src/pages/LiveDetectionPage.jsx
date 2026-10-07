@@ -48,6 +48,7 @@ export default function LiveDetectionPage() {
   const [showFullDocModal, setShowFullDocModal] = useState(false)
   const [filterSeverity, setFilterSeverity] = useState('all')
   const liveLoopRef = useRef(false)
+  const abortControllerRef = useRef(null)
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const containerRef = useRef(null)
@@ -218,7 +219,7 @@ export default function LiveDetectionPage() {
   const captureFrame = async () => {
     const video = videoRef.current
     const canvas = canvasRef.current
-    if (!video || !canvas || processingRef.current) return
+    if (!video || !canvas || processingRef.current || !liveLoopRef.current) return
     if (video.videoWidth === 0 || video.videoHeight === 0) return
 
     processingRef.current = true
@@ -236,14 +237,20 @@ export default function LiveDetectionPage() {
       const now = Date.now()
       const shouldSave = saveDbRef.current && (now - lastSavedRef.current > 3000)
 
+      abortControllerRef.current = new AbortController()
+
       const data = await detectFrame(
         base64,
         locationRef.current?.lat ?? null,
         locationRef.current?.lon ?? null,
         roadNameRef.current,
         confRef.current,
-        shouldSave
+        shouldSave,
+        abortControllerRef.current.signal
       )
+
+      // Guard: if user stopped detection while request was running, do not update UI
+      if (!liveLoopRef.current) return
 
       if (shouldSave && data.pothole_count > 0) {
         lastSavedRef.current = now
@@ -313,13 +320,20 @@ export default function LiveDetectionPage() {
 
       lastPotholeCountRef.current = data.pothole_count
 
-    } catch {
-      // silently skip frame errors
+    } catch (error) {
+      if (!liveLoopRef.current) return
+      if (error?.name === 'CanceledError' || error?.code === 'ERR_CANCELED') {
+        return
+      }
+      // Non-fatal frame error: log to console and allow subsequent frames to process
+      console.error('Live detection frame error:', error)
     } finally {
+      abortControllerRef.current = null
       processingRef.current = false
       setProcessing(false)
     }
   }
+
   // Sequential live detection loop.
   // Waits for each backend inference to finish before capturing
   // the next frame. This prevents overlapping requests.
@@ -334,6 +348,7 @@ export default function LiveDetectionPage() {
       }
     }
   }
+
   const startDetection = async () => {
     setError(null)
     setResult(null)
@@ -349,6 +364,10 @@ export default function LiveDetectionPage() {
     }
 
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Camera API is not supported in this browser or requires HTTPS/localhost.')
+      }
+
       // Request camera access
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -360,10 +379,11 @@ export default function LiveDetectionPage() {
       })
 
       // Attach camera stream to video element
-      videoRef.current.srcObject = stream
-
-      // Start playing the camera
-      await videoRef.current.play()
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        // Start playing the camera
+        await videoRef.current.play()
+      }
 
       // Start survey state
       setRunning(true)
@@ -374,21 +394,24 @@ export default function LiveDetectionPage() {
 
       // Start session timer
       const now = Date.now()
-
       sessionStartTimeRef.current = now
       setSessionStartTime(now)
-
       lastTimeRef.current = now
 
       // Start detection loop.
-      // Each frame waits for the previous backend inference
-      // to finish before sending another frame.
       runLiveDetectionLoop()
 
     } catch (e) {
-      console.error('Camera error:', e)
-
-      setError('Camera access denied: ' + e.message)
+      console.error('Camera startup error:', e)
+      let msg = e.message || 'Unable to access camera.'
+      if (e.name === 'NotAllowedError' || e.name === 'PermissionDeniedError') {
+        msg = 'Camera permission denied. Please allow camera permissions in your browser settings to start the survey.'
+      } else if (e.name === 'NotFoundError' || e.name === 'DevicesNotFoundError') {
+        msg = 'No video camera detected on this device.'
+      } else if (e.name === 'NotReadableError' || e.name === 'TrackStartError') {
+        msg = 'Camera is currently in use by another application or blocked by system permissions.'
+      }
+      setError(msg)
 
       // Make sure the loop is disabled if camera startup fails
       liveLoopRef.current = false
@@ -397,33 +420,39 @@ export default function LiveDetectionPage() {
   }
 
   const stopDetection = () => {
-    // Stop the sequential live detection loop
+    // 1. Stop the sequential live detection loop FIRST
     liveLoopRef.current = false
 
-    // Clear any old timers
+    // 2. Abort pending in-flight request if any
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort()
+      } catch (e) {
+        // ignore
+      }
+      abortControllerRef.current = null
+    }
+
+    // 3. Clear timers
     if (timerRef.current) clearInterval(timerRef.current)
     if (durationTimerRef.current) clearInterval(durationTimerRef.current)
 
-    // Stop camera
-    videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
-
-    if (videoRef.current) {
+    // 4. Stop camera tracks
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(t => t.stop())
       videoRef.current.srcObject = null
     }
 
-    // Clear detection overlay
-    const ctx = canvasRef.current?.getContext('2d')
-
-    if (ctx) {
-      ctx.clearRect(
-        0,
-        0,
-        canvasRef.current.width,
-        canvasRef.current.height
-      )
+    // 5. Clear detection overlay
+    const canvas = canvasRef.current
+    if (canvas) {
+      const ctx = canvas.getContext('2d')
+      if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+      }
     }
 
-    // Reset processing state
+    // 6. Reset processing state
     setRunning(false)
     setProcessing(false)
     processingRef.current = false
@@ -436,24 +465,31 @@ export default function LiveDetectionPage() {
     // Stop the live detection loop first
     liveLoopRef.current = false
 
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort()
+      } catch (e) {
+        // ignore
+      }
+      abortControllerRef.current = null
+    }
+
     if (running) {
       stopDetection()
     }
 
     setIncidents([])
     incidentsRef.current = []
-
     setTotalPotholesCount(0)
-
     setSeverityCounts({
       Small: 0,
       Medium: 0,
       Large: 0
     })
-
     setSessionDuration(0)
     setFrameCount(0)
     setResult(null)
+    setError(null)
     setSurveyStatus('idle')
   }
 
@@ -461,6 +497,14 @@ export default function LiveDetectionPage() {
     return () => {
       // Stop sequential detection loop
       liveLoopRef.current = false
+
+      if (abortControllerRef.current) {
+        try {
+          abortControllerRef.current.abort()
+        } catch (e) {
+          // ignore
+        }
+      }
 
       // Clear timers
       if (timerRef.current) {
@@ -471,8 +515,11 @@ export default function LiveDetectionPage() {
         clearInterval(durationTimerRef.current)
       }
 
-      // Stop camera
-      videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
+      // Stop camera tracks
+      if (videoRef.current?.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(t => t.stop())
+        videoRef.current.srcObject = null
+      }
     }
   }, [])
 
@@ -628,13 +675,19 @@ export default function LiveDetectionPage() {
                     <span className="text-slate-500 text-xs">|</span>
                     <span className="text-blue-300 text-xs font-mono">{formatDuration(sessionDuration)}</span>
                     <span className="text-slate-500 text-xs">|</span>
-                    <span className="text-slate-300 text-xs">{fps} FPS</span>
+                    <span className="text-slate-300 text-xs">{fps > 0 ? `${fps} inf/s` : 'Active'}</span>
                     <span className="text-slate-500 text-xs">|</span>
-                    <span className="text-slate-300 text-xs">Frame #{frameCount}</span>
+                    <span className="text-slate-300 text-xs">Frames: {frameCount}</span>
+                    <span className="text-slate-500 text-xs">|</span>
+                    <span className="text-slate-300 text-xs">Potholes: {totalPotholesCount}</span>
                   </div>
-                  {processing && (
-                    <div className="bg-black/75 backdrop-blur rounded-full px-2.5 py-1 flex items-center gap-1.5 text-blue-300 border border-white/10">
-                      <Spinner size={12} /><span className="text-xs">Analyzing</span>
+                  {processing ? (
+                    <div className="bg-blue-600/90 backdrop-blur rounded-full px-3 py-1 flex items-center gap-1.5 text-white border border-blue-400/30 animate-pulse">
+                      <Spinner size={12} /><span className="text-xs font-semibold">Running Inference (CPU)…</span>
+                    </div>
+                  ) : (
+                    <div className="bg-emerald-600/80 backdrop-blur rounded-full px-2.5 py-1 flex items-center gap-1 text-white border border-emerald-400/30">
+                      <span className="text-xs">Camera Feed Ready</span>
                     </div>
                   )}
                 </div>
@@ -930,8 +983,8 @@ export default function LiveDetectionPage() {
               <button
                 onClick={() => setFilterSeverity('all')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'all'
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
               >
                 All ({incidents.length})
@@ -939,8 +992,8 @@ export default function LiveDetectionPage() {
               <button
                 onClick={() => setFilterSeverity('Large')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Large'
-                    ? 'bg-red-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-red-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
               >
                 Large ({severityCounts.Large})
@@ -948,8 +1001,8 @@ export default function LiveDetectionPage() {
               <button
                 onClick={() => setFilterSeverity('Medium')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Medium'
-                    ? 'bg-amber-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-amber-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
               >
                 Medium ({severityCounts.Medium})
@@ -957,8 +1010,8 @@ export default function LiveDetectionPage() {
               <button
                 onClick={() => setFilterSeverity('Small')}
                 className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Small'
-                    ? 'bg-emerald-600 text-white shadow-xs'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                   }`}
               >
                 Small ({severityCounts.Small})
