@@ -26,44 +26,44 @@ const formatDuration = (secs) => {
 }
 
 export default function LiveDetectionPage() {
-  const [running,            setRunning]            = useState(false)
-  const [processing,         setProcessing]         = useState(false)
-  const [result,             setResult]             = useState(null)
-  const [error,              setError]              = useState(null)
-  const [location,           setLocation]           = useState(null)
-  const [frameCount,         setFrameCount]         = useState(0)
-  const [fps,                setFps]                = useState(0)
-  const [confThreshold,      setConfThreshold]      = useState(0.12)
-  const [roadName,           setRoadName]           = useState('Live Survey Road')
-  const [saveToWarehouse,    setSaveToWarehouse]    = useState(true)
+  const [running, setRunning] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState(null)
+  const [location, setLocation] = useState(null)
+  const [frameCount, setFrameCount] = useState(0)
+  const [fps, setFps] = useState(0)
+  const [confThreshold, setConfThreshold] = useState(0.12)
+  const [roadName, setRoadName] = useState('Live Survey Road')
+  const [saveToWarehouse, setSaveToWarehouse] = useState(true)
 
   // Report & Session State
-  const [surveyStatus,       setSurveyStatus]       = useState('idle') // 'idle' | 'running' | 'completed'
-  const [sessionStartTime,   setSessionStartTime]   = useState(null)
-  const [sessionDuration,    setSessionDuration]    = useState(0)
-  const [incidents,          setIncidents]          = useState([])
+  const [surveyStatus, setSurveyStatus] = useState('idle') // 'idle' | 'running' | 'completed'
+  const [sessionStartTime, setSessionStartTime] = useState(null)
+  const [sessionDuration, setSessionDuration] = useState(0)
+  const [incidents, setIncidents] = useState([])
   const [totalPotholesCount, setTotalPotholesCount] = useState(0)
-  const [severityCounts,     setSeverityCounts]     = useState({ Small: 0, Medium: 0, Large: 0 })
-  const [selectedIncident,   setSelectedIncident]   = useState(null)
-  const [showFullDocModal,   setShowFullDocModal]   = useState(false)
-  const [filterSeverity,     setFilterSeverity]     = useState('all')
-
-  const videoRef             = useRef(null)
-  const canvasRef            = useRef(null)
-  const containerRef         = useRef(null)
-  const timerRef             = useRef(null)
-  const durationTimerRef     = useRef(null)
-  const lastTimeRef          = useRef(Date.now())
-  const processingRef        = useRef(false)
-  const confRef              = useRef(confThreshold)
-  const saveDbRef            = useRef(saveToWarehouse)
-  const lastSavedRef         = useRef(0)
-  const sessionStartTimeRef  = useRef(null)
-  const incidentsRef         = useRef([])
-  const lastIncidentLogRef   = useRef(0)
-  const lastPotholeCountRef  = useRef(0)
-  const roadNameRef          = useRef(roadName)
-  const locationRef          = useRef(location)
+  const [severityCounts, setSeverityCounts] = useState({ Small: 0, Medium: 0, Large: 0 })
+  const [selectedIncident, setSelectedIncident] = useState(null)
+  const [showFullDocModal, setShowFullDocModal] = useState(false)
+  const [filterSeverity, setFilterSeverity] = useState('all')
+  const liveLoopRef = useRef(false)
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const containerRef = useRef(null)
+  const timerRef = useRef(null)
+  const durationTimerRef = useRef(null)
+  const lastTimeRef = useRef(Date.now())
+  const processingRef = useRef(false)
+  const confRef = useRef(confThreshold)
+  const saveDbRef = useRef(saveToWarehouse)
+  const lastSavedRef = useRef(0)
+  const sessionStartTimeRef = useRef(null)
+  const incidentsRef = useRef([])
+  const lastIncidentLogRef = useRef(0)
+  const lastPotholeCountRef = useRef(0)
+  const roadNameRef = useRef(roadName)
+  const locationRef = useRef(location)
 
   useEffect(() => { confRef.current = confThreshold }, [confThreshold])
   useEffect(() => { saveDbRef.current = saveToWarehouse }, [saveToWarehouse])
@@ -79,7 +79,7 @@ export default function LiveDetectionPage() {
           setLocation(loc)
           locationRef.current = loc
         },
-        () => {}
+        () => { }
       )
     }
   }, [])
@@ -103,7 +103,7 @@ export default function LiveDetectionPage() {
   // Draw bounding boxes on the main overlay canvas
   const drawBoxes = (canvas, video, detections) => {
     const rect = video.getBoundingClientRect()
-    canvas.width  = rect.width
+    canvas.width = rect.width
     canvas.height = rect.height
 
     const ctx = canvas.getContext('2d')
@@ -123,12 +123,12 @@ export default function LiveDetectionPage() {
       const y1 = box[1] * canvas.height
       const x2 = box[2] * canvas.width
       const y2 = box[3] * canvas.height
-      const w  = Math.max(10, x2 - x1)
-      const h  = Math.max(10, y2 - y1)
+      const w = Math.max(10, x2 - x1)
+      const h = Math.max(10, y2 - y1)
 
       // Bold red bounding box
       ctx.strokeStyle = '#dc2626'
-      ctx.lineWidth   = 3
+      ctx.lineWidth = 3
       ctx.strokeRect(x1, y1, w, h)
 
       // Semi-transparent fill
@@ -136,8 +136,8 @@ export default function LiveDetectionPage() {
       ctx.fillRect(x1, y1, w, h)
 
       // Confidence + severity label
-      const sev   = det.estimated_severity || det.estimated_severity_proxy || ''
-      const conf  = (det.confidence * 100).toFixed(0)
+      const sev = det.estimated_severity || det.estimated_severity_proxy || ''
+      const conf = (det.confidence * 100).toFixed(0)
       const label = sev ? `Pothole ${conf}% · ${sev}` : `Pothole ${conf}%`
 
       ctx.font = 'bold 13px Inter, system-ui, sans-serif'
@@ -216,7 +216,7 @@ export default function LiveDetectionPage() {
 
   // Frame processing loop
   const captureFrame = async () => {
-    const video  = videoRef.current
+    const video = videoRef.current
     const canvas = canvasRef.current
     if (!video || !canvas || processingRef.current) return
     if (video.videoWidth === 0 || video.videoHeight === 0) return
@@ -227,8 +227,8 @@ export default function LiveDetectionPage() {
     try {
       const targetW = 640
       const targetH = Math.round(video.videoHeight * (640 / video.videoWidth))
-      const off  = document.createElement('canvas')
-      off.width  = targetW
+      const off = document.createElement('canvas')
+      off.width = targetW
       off.height = targetH
       off.getContext('2d').drawImage(video, 0, 0, targetW, targetH)
       const base64 = off.toDataURL('image/jpeg', 0.7)
@@ -320,13 +320,26 @@ export default function LiveDetectionPage() {
       setProcessing(false)
     }
   }
+  // Sequential live detection loop.
+  // Waits for each backend inference to finish before capturing
+  // the next frame. This prevents overlapping requests.
+  const runLiveDetectionLoop = async () => {
+    while (liveLoopRef.current) {
+      await captureFrame()
 
+      // Small pause before requesting the next frame.
+      // The actual interval is dominated by backend inference time.
+      if (liveLoopRef.current) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    }
+  }
   const startDetection = async () => {
     setError(null)
     setResult(null)
     setFrameCount(0)
 
-    // If starting a fresh survey after stopping, reset or start clean
+    // If starting a fresh survey after stopping, reset the previous survey
     if (surveyStatus === 'completed') {
       setIncidents([])
       incidentsRef.current = []
@@ -336,53 +349,131 @@ export default function LiveDetectionPage() {
     }
 
     try {
+      // Request camera access
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' },
+        video: {
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          facingMode: 'environment'
+        },
         audio: false
       })
+
+      // Attach camera stream to video element
       videoRef.current.srcObject = stream
+
+      // Start playing the camera
       await videoRef.current.play()
+
+      // Start survey state
       setRunning(true)
       setSurveyStatus('running')
+
+      // Enable sequential live detection loop
+      liveLoopRef.current = true
+
+      // Start session timer
       const now = Date.now()
+
       sessionStartTimeRef.current = now
       setSessionStartTime(now)
+
       lastTimeRef.current = now
-      timerRef.current = setInterval(captureFrame, 350)
+
+      // Start detection loop.
+      // Each frame waits for the previous backend inference
+      // to finish before sending another frame.
+      runLiveDetectionLoop()
+
     } catch (e) {
+      console.error('Camera error:', e)
+
       setError('Camera access denied: ' + e.message)
+
+      // Make sure the loop is disabled if camera startup fails
+      liveLoopRef.current = false
+      setRunning(false)
     }
   }
 
   const stopDetection = () => {
+    // Stop the sequential live detection loop
+    liveLoopRef.current = false
+
+    // Clear any old timers
     if (timerRef.current) clearInterval(timerRef.current)
     if (durationTimerRef.current) clearInterval(durationTimerRef.current)
+
+    // Stop camera
     videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
-    if (videoRef.current) videoRef.current.srcObject = null
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+
+    // Clear detection overlay
     const ctx = canvasRef.current?.getContext('2d')
-    if (ctx) ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+
+    if (ctx) {
+      ctx.clearRect(
+        0,
+        0,
+        canvasRef.current.width,
+        canvasRef.current.height
+      )
+    }
+
+    // Reset processing state
     setRunning(false)
     setProcessing(false)
     processingRef.current = false
+
+    // Mark survey as completed
     setSurveyStatus('completed')
   }
 
   const resetSurvey = () => {
-    if (running) stopDetection()
+    // Stop the live detection loop first
+    liveLoopRef.current = false
+
+    if (running) {
+      stopDetection()
+    }
+
     setIncidents([])
     incidentsRef.current = []
+
     setTotalPotholesCount(0)
-    setSeverityCounts({ Small: 0, Medium: 0, Large: 0 })
+
+    setSeverityCounts({
+      Small: 0,
+      Medium: 0,
+      Large: 0
+    })
+
     setSessionDuration(0)
     setFrameCount(0)
     setResult(null)
     setSurveyStatus('idle')
   }
 
-  useEffect(() => () => {
-    if (timerRef.current) clearInterval(timerRef.current)
-    if (durationTimerRef.current) clearInterval(durationTimerRef.current)
-    videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
+  useEffect(() => {
+    return () => {
+      // Stop sequential detection loop
+      liveLoopRef.current = false
+
+      // Clear timers
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current)
+      }
+
+      // Stop camera
+      videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
+    }
   }, [])
 
   // Calculate road health / condition rating based on findings
@@ -479,16 +570,16 @@ export default function LiveDetectionPage() {
         <div className="flex items-center gap-2">
           {surveyStatus !== 'idle' && (
             <button className="btn-secondary" onClick={resetSurvey}>
-              <RefreshCw size={14}/> Reset Survey
+              <RefreshCw size={14} /> Reset Survey
             </button>
           )}
           {running ? (
             <button className="btn-danger" onClick={stopDetection}>
-              <Square size={14}/> Stop Survey
+              <Square size={14} /> Stop Survey
             </button>
           ) : (
             <button className="btn-primary" onClick={startDetection}>
-              <Play size={14}/> {surveyStatus === 'completed' ? 'Start New Survey' : 'Start Camera'}
+              <Play size={14} /> {surveyStatus === 'completed' ? 'Start New Survey' : 'Start Camera'}
             </button>
           )}
         </div>
@@ -500,7 +591,7 @@ export default function LiveDetectionPage() {
 
       {error && (
         <div className="flex gap-2 p-3 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm">
-          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5"/> {error}
+          <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" /> {error}
         </div>
       )}
 
@@ -532,7 +623,7 @@ export default function LiveDetectionPage() {
               {running && (
                 <div className="absolute top-3 left-3 flex flex-wrap items-center gap-2">
                   <div className="bg-black/75 backdrop-blur rounded-full px-3 py-1 flex items-center gap-2 border border-white/10">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"/>
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
                     <span className="text-white text-xs font-bold tracking-wider">LIVE SURVEY</span>
                     <span className="text-slate-500 text-xs">|</span>
                     <span className="text-blue-300 text-xs font-mono">{formatDuration(sessionDuration)}</span>
@@ -543,7 +634,7 @@ export default function LiveDetectionPage() {
                   </div>
                   {processing && (
                     <div className="bg-black/75 backdrop-blur rounded-full px-2.5 py-1 flex items-center gap-1.5 text-blue-300 border border-white/10">
-                      <Spinner size={12}/><span className="text-xs">Analyzing</span>
+                      <Spinner size={12} /><span className="text-xs">Analyzing</span>
                     </div>
                   )}
                 </div>
@@ -553,19 +644,19 @@ export default function LiveDetectionPage() {
               {running && hasPothole && (
                 <div className="absolute bottom-3 left-3 right-3 bg-red-600/95 backdrop-blur rounded-xl px-4 py-2.5 flex items-center justify-between shadow-lg border border-red-400/30 animate-pulse">
                   <div className="flex items-center gap-2 text-white">
-                    <Zap size={18} className="text-amber-300"/>
+                    <Zap size={18} className="text-amber-300" />
                     <span className="font-bold text-sm tracking-wide">
                       {result.pothole_count} Pothole{result.pothole_count > 1 ? 's' : ''} Detected in Frame
                     </span>
                   </div>
-                  <SeverityBadge severity={result.dominant_severity || result.dominant_severity_proxy}/>
+                  <SeverityBadge severity={result.dominant_severity || result.dominant_severity_proxy} />
                 </div>
               )}
 
               {!running && (
                 <div className="flex flex-col items-center justify-center py-24 text-slate-500">
                   <div className="w-16 h-16 rounded-2xl bg-slate-800 text-blue-400 flex items-center justify-center mb-4 shadow-inner">
-                    <Camera size={32}/>
+                    <Camera size={32} />
                   </div>
                   <p className="text-slate-200 font-semibold text-sm">
                     {surveyStatus === 'completed' ? 'Survey Concluded' : 'Camera Inactive'}
@@ -586,7 +677,7 @@ export default function LiveDetectionPage() {
           {/* Live Telemetry */}
           <div className="card space-y-3">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Activity size={16} className="text-blue-500"/> Current Frame Telemetry
+              <Activity size={16} className="text-blue-500" /> Current Frame Telemetry
             </h3>
 
             <div className="grid grid-cols-2 gap-2">
@@ -609,7 +700,7 @@ export default function LiveDetectionPage() {
                 <span className="text-slate-400">Current Severity:</span>
                 <span>
                   {hasPothole
-                    ? <SeverityBadge severity={result.dominant_severity || result.dominant_severity_proxy}/>
+                    ? <SeverityBadge severity={result.dominant_severity || result.dominant_severity_proxy} />
                     : <span className="text-slate-400">—</span>
                   }
                 </span>
@@ -621,7 +712,7 @@ export default function LiveDetectionPage() {
               <div className="flex justify-between">
                 <span className="text-slate-400">GPS Location:</span>
                 <span className="font-mono text-[11px] flex items-center gap-1">
-                  <MapPin size={11} className="text-blue-500"/>
+                  <MapPin size={11} className="text-blue-500" />
                   {location ? `${location.lat.toFixed(4)}, ${location.lon.toFixed(4)}` : 'Not available'}
                 </span>
               </div>
@@ -631,7 +722,7 @@ export default function LiveDetectionPage() {
           {/* Survey Controls */}
           <div className="card space-y-4">
             <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-              <Sliders size={16} className="text-blue-500"/> Survey Configuration
+              <Sliders size={16} className="text-blue-500" /> Survey Configuration
             </h3>
 
             <div>
@@ -664,7 +755,7 @@ export default function LiveDetectionPage() {
 
             <div className="flex items-center justify-between pt-2 border-t border-slate-100">
               <div className="flex items-center gap-2">
-                <Database size={13} className="text-blue-500"/>
+                <Database size={13} className="text-blue-500" />
                 <span className="text-xs font-medium text-slate-700">Auto-save to warehouse</span>
               </div>
               <input
@@ -782,7 +873,7 @@ export default function LiveDetectionPage() {
             <div className="p-3.5 bg-white rounded-xl border border-slate-200 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                  <Layers size={13} className="text-blue-500"/> Severity Classification
+                  <Layers size={13} className="text-blue-500" /> Severity Classification
                 </span>
                 <span className="text-slate-400 text-[11px]">{totalPotholesCount} total items</span>
               </div>
@@ -824,7 +915,7 @@ export default function LiveDetectionPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                <Camera size={16} className="text-blue-600"/> Detected Potholes Log & Photographic Evidence
+                <Camera size={16} className="text-blue-600" /> Detected Potholes Log & Photographic Evidence
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
                 Timestamped snapshots captured during live camera survey ({incidents.length} events logged)
@@ -838,41 +929,37 @@ export default function LiveDetectionPage() {
               </span>
               <button
                 onClick={() => setFilterSeverity('all')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterSeverity === 'all'
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'all'
                     ? 'bg-blue-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 All ({incidents.length})
               </button>
               <button
                 onClick={() => setFilterSeverity('Large')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterSeverity === 'Large'
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Large'
                     ? 'bg-red-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 Large ({severityCounts.Large})
               </button>
               <button
                 onClick={() => setFilterSeverity('Medium')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterSeverity === 'Medium'
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Medium'
                     ? 'bg-amber-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 Medium ({severityCounts.Medium})
               </button>
               <button
                 onClick={() => setFilterSeverity('Small')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
-                  filterSeverity === 'Small'
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${filterSeverity === 'Small'
                     ? 'bg-emerald-600 text-white shadow-xs'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
+                  }`}
               >
                 Small ({severityCounts.Small})
               </button>
@@ -1231,8 +1318,8 @@ export default function LiveDetectionPage() {
                 <div className="pt-2 text-xs">
                   <p className="font-semibold text-slate-700">Defect Severity Breakdown:</p>
                   <p className="text-slate-600 mt-1">
-                    • <strong>Large / Critical Defects:</strong> {severityCounts.Large} ({((severityCounts.Large / (totalPotholesCount || 1)) * 100).toFixed(0)}%)<br/>
-                    • <strong>Medium Defects:</strong> {severityCounts.Medium} ({((severityCounts.Medium / (totalPotholesCount || 1)) * 100).toFixed(0)}%)<br/>
+                    • <strong>Large / Critical Defects:</strong> {severityCounts.Large} ({((severityCounts.Large / (totalPotholesCount || 1)) * 100).toFixed(0)}%)<br />
+                    • <strong>Medium Defects:</strong> {severityCounts.Medium} ({((severityCounts.Medium / (totalPotholesCount || 1)) * 100).toFixed(0)}%)<br />
                     • <strong>Small / Minor Surface Defects:</strong> {severityCounts.Small} ({((severityCounts.Small / (totalPotholesCount || 1)) * 100).toFixed(0)}%)
                   </p>
                 </div>
