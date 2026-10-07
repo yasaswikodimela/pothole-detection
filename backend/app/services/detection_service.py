@@ -37,8 +37,8 @@ from backend.app.models.detection import (
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MODEL_PATH = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "ml" / "models" / "best.pt"
+    Path(__file__).resolve().parent.parent
+    / "models" / "best.pt"
 )
 
 # Severity proxy thresholds (normalised bounding-box area w * h)
