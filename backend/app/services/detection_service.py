@@ -37,7 +37,7 @@ from backend.app.models.detection import (
 # ── Constants ─────────────────────────────────────────────────────────────────
 
 MODEL_PATH = (
-    Path(__file__).resolve().parent.parent
+    Path(__file__).resolve().parent.parent.parent
     / "models" / "best.pt"
 )
 
