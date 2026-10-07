@@ -151,7 +151,7 @@ async def detect_frame(
         request.latitude is not None and request.longitude is not None
     )
 
-    if result.pothole_count > 0:
+    if result.pothole_count > 0 and request.save_to_db:
         await etl_service.load_detection_to_warehouse(db=db, result=result)
 
     formatted_detections = [
@@ -164,6 +164,7 @@ async def detect_frame(
     ]
 
     return {
+        "detection_id":    result.result_id,
         "pothole_count":   result.pothole_count,
         "avg_confidence":  result.avg_confidence,
         "inference_ms":    result.inference_ms,
@@ -183,22 +184,20 @@ async def detect_frame(
 @router.post("/video", summary="Detect potholes in an uploaded video file")
 async def detect_video(
     file:           UploadFile = File(...),
-    conf_threshold: float      = Form(0.25),
+    conf_threshold: float      = Form(0.15),
     iou_threshold:  float      = Form(0.45),
     imgsz:          int        = Form(640),
     frame_skip:     int        = Form(5,  description="Process every Nth frame"),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Upload a video file (MP4 / AVI / MOV) and receive a detection summary.
+    Upload a video file (MP4 / AVI / MOV / WEBM) and receive a detection summary.
 
     Processing:
     - Reads the video frame by frame.
     - Runs YOLO inference every `frame_skip` frames.
     - Returns a summary: total frames, pothole count per frame, timestamps.
-    - Does NOT store every frame permanently.
-
-    Returns a summary JSON with per-frame results.
+    - Stores frames containing potholes to the data warehouse.
     """
     try:
         import cv2
@@ -207,9 +206,10 @@ async def detect_video(
         raise HTTPException(status_code=500, detail="OpenCV not installed.")
 
     video_bytes = await file.read()
+    suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
 
-    # Write to a temp file (OpenCV requires a path or real file)
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp:
+    # Write to a temp file (OpenCV requires a file path)
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(video_bytes)
         tmp_path = tmp.name
 
@@ -219,7 +219,7 @@ async def detect_video(
             raise HTTPException(status_code=400, detail="Could not open video file.")
 
         fps_in       = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
         frame_results = []
         frame_idx     = 0
         total_potholes = 0
@@ -239,15 +239,29 @@ async def detect_video(
                     device         = "upload",
                 )
 
-                frame_time_s = frame_idx / fps_in
+                frame_time_s = frame_idx / fps_in if fps_in > 0 else 0
                 total_potholes += result.pothole_count
 
+                formatted_detections = [
+                    {
+                        **d.model_dump(),
+                        "estimated_severity": d.estimated_severity_proxy,
+                        "bbox": [d.bounding_box.x1, d.bounding_box.y1, d.bounding_box.x2, d.bounding_box.y2],
+                    }
+                    for d in result.detections
+                ]
+
                 frame_results.append({
-                    "frame":         frame_idx,
-                    "time_seconds":  round(frame_time_s, 2),
-                    "pothole_count": result.pothole_count,
-                    "avg_confidence": result.avg_confidence,
+                    "frame":                   frame_idx,
+                    "frame_number":            frame_idx,
+                    "time_seconds":            round(frame_time_s, 2),
+                    "pothole_count":           result.pothole_count,
+                    "avg_confidence":          result.avg_confidence,
+                    "max_confidence":          result.avg_confidence,
                     "dominant_severity_proxy": result.dominant_severity_proxy,
+                    "max_severity":            result.dominant_severity_proxy,
+                    "severity":                result.dominant_severity_proxy,
+                    "detections":              formatted_detections,
                 })
 
                 # Store each frame with detections to DB
@@ -263,14 +277,23 @@ async def detect_video(
         cap.release()
 
     finally:
-        os.unlink(tmp_path)
+        if os.path.exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception:
+                pass
+
+    frames_with_potholes_count = sum(1 for f in frame_results if f["pothole_count"] > 0)
 
     return {
-        "video_filename": file.filename,
-        "total_frames":   total_frames,
-        "frames_processed": len(frame_results),
-        "frame_skip":     frame_skip,
-        "total_potholes": total_potholes,
-        "severity_note":  "Estimated Severity (Bounding-Box Area Proxy) — NOT actual depth",
-        "frame_results":  frame_results,
+        "video_filename":       file.filename,
+        "total_frames":         total_frames or frame_idx,
+        "frames_processed":     len(frame_results),
+        "frames_analysed":      len(frame_results),
+        "frame_skip":           frame_skip,
+        "total_potholes":       total_potholes,
+        "frames_with_potholes": frames_with_potholes_count,
+        "severity_note":        "Estimated Severity (Bounding-Box Area Proxy) — NOT actual physical pothole depth",
+        "frame_results":        frame_results,
+        "per_frame_results":    frame_results,
     }

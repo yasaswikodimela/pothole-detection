@@ -23,13 +23,23 @@ router = APIRouter()
 
 @router.get("", summary="List detection history (paginated)")
 async def list_detections(
-    limit:  int           = Query(50, ge=1, le=500),
-    offset: int           = Query(0,  ge=0),
-    source: Optional[str] = Query(None, description="Filter: IMAGE | VIDEO | LIVE_CAMERA"),
+    limit:     Optional[int] = Query(None, ge=1, le=500),
+    offset:    Optional[int] = Query(None, ge=0),
+    page:      Optional[int] = Query(None, ge=1),
+    page_size: Optional[int] = Query(None, ge=1, le=500),
+    source:    Optional[str] = Query(None, description="Filter: IMAGE | VIDEO | LIVE_CAMERA"),
     db: AsyncSession = Depends(get_db),
 ):
     """Return paginated detection records from the data warehouse."""
-    conditions, params = [], {"limit": limit, "offset": offset}
+    effective_limit = limit or page_size or 50
+    if offset is not None:
+        effective_offset = offset
+    elif page is not None:
+        effective_offset = (page - 1) * effective_limit
+    else:
+        effective_offset = 0
+
+    conditions, params = [], {"limit": effective_limit, "offset": effective_offset}
 
     if source:
         conditions.append("f.Source = :source")
@@ -67,27 +77,34 @@ async def list_detections(
     )
     total = count_result.scalar() or 0
 
+    formatted_items = [
+        {
+            "detection_id":       r[0],
+            "date":               r[1],
+            "time":               r[2],
+            "pothole_count":      r[3],
+            "confidence":         round(r[4], 4),
+            "source":             r[5],
+            "device":             r[6],
+            "road":               r[7],
+            "road_name":          r[7],
+            "severity":           r[8],
+            "estimated_severity": r[8],
+            "latitude":           r[9],
+            "longitude":          r[10],
+            "timestamp":          r[11],
+        }
+        for r in rows
+    ]
+
     return {
-        "total":  total,
-        "limit":  limit,
-        "offset": offset,
-        "data": [
-            {
-                "detection_id":  r[0],
-                "date":          r[1],
-                "time":          r[2],
-                "pothole_count": r[3],
-                "confidence":    round(r[4], 4),
-                "source":        r[5],
-                "device":        r[6],
-                "road":          r[7],
-                "severity":      r[8],
-                "latitude":      r[9],
-                "longitude":     r[10],
-                "timestamp":     r[11],
-            }
-            for r in rows
-        ],
+        "total":      total,
+        "limit":      effective_limit,
+        "offset":     effective_offset,
+        "page":       page or (effective_offset // effective_limit + 1),
+        "page_size":  effective_limit,
+        "data":       formatted_items,
+        "detections": formatted_items,
     }
 
 

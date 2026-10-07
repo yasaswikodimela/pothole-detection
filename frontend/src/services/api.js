@@ -31,7 +31,7 @@ export const detectImage = (file, latitude = null, longitude = null, roadName = 
 }
 
 // ── Detection: webcam frame ───────────────────────────────
-export const detectFrame = (base64jpeg, latitude = null, longitude = null, roadName = null, confThreshold = 0.15) => {
+export const detectFrame = (base64jpeg, latitude = null, longitude = null, roadName = null, confThreshold = 0.15, saveToDb = false) => {
   const cleanBase64 = base64jpeg.includes(',') ? base64jpeg.split(',')[1] : base64jpeg
   return api.post('/detect/frame', {
     image_base64: cleanBase64,
@@ -39,16 +39,19 @@ export const detectFrame = (base64jpeg, latitude = null, longitude = null, roadN
     longitude: longitude,
     road_name: roadName,
     conf_threshold: confThreshold,
-    device: 'webcam'
+    device: 'webcam',
+    save_to_db: saveToDb,
   }).then(r => r.data)
 }
 
 
 
 // ── Detection: video ──────────────────────────────────────
-export const detectVideo = (file, onUploadProgress) => {
+export const detectVideo = (file, confThreshold = 0.15, frameSkip = 5, onUploadProgress = null) => {
   const fd = new FormData()
   fd.append('file', file)
+  fd.append('conf_threshold', confThreshold)
+  fd.append('frame_skip', frameSkip)
   return api.post('/detect/video', fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress,

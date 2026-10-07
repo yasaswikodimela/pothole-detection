@@ -42,7 +42,7 @@ export default function HistoryPage() {
 
   useEffect(() => { load(1) }, [])
 
-  const detections = data?.detections || []
+  const detections = data?.detections || data?.data || []
   const total      = data?.total      || 0
 
   return (
@@ -63,7 +63,7 @@ export default function HistoryPage() {
       ) : detections.length === 0 ? (
         <div className="card">
           <Empty
-            message="No detection data available. Run an image or video detection first."
+            message="No detection data available. Run an image, webcam, or video detection first."
             icon={AlertCircle}
           />
         </div>
@@ -71,7 +71,7 @@ export default function HistoryPage() {
         <div className="card overflow-x-auto">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-slate-700">
-              {total} total detections
+              {total} total detections in warehouse
             </h2>
           </div>
 
@@ -80,6 +80,7 @@ export default function HistoryPage() {
               <tr className="text-xs text-slate-500 border-b border-slate-100">
                 <th className="text-left pb-3">ID</th>
                 <th className="text-left pb-3">Timestamp</th>
+                <th className="text-left pb-3">Source</th>
                 <th className="text-left pb-3">Road</th>
                 <th className="text-left pb-3">Location</th>
                 <th className="text-left pb-3">Potholes</th>
@@ -90,31 +91,38 @@ export default function HistoryPage() {
             <tbody className="divide-y divide-slate-50">
               {detections.map(d => (
                 <tr key={d.detection_id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 text-xs text-slate-400">{d.detection_id}</td>
-                  <td className="py-2.5 text-xs whitespace-nowrap">
-                    {d.timestamp ? new Date(d.timestamp).toLocaleString() : '—'}
+                  <td className="py-2.5 text-xs text-slate-400 font-mono">
+                    {d.detection_id ? d.detection_id.substring(0, 8) + '…' : '—'}
                   </td>
-                  <td className="py-2.5 font-medium">{d.road_name || '—'}</td>
+                  <td className="py-2.5 text-xs whitespace-nowrap">
+                    {d.timestamp ? new Date(d.timestamp).toLocaleString() : (d.date ? `${d.date} ${d.time || ''}` : '—')}
+                  </td>
+                  <td className="py-2.5 text-xs">
+                    <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium text-[11px]">
+                      {d.source || '—'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 font-medium">{d.road_name || d.road || '—'}</td>
                   <td className="py-2.5 text-xs text-slate-500">
                     {d.latitude != null ? (
                       <span className="flex items-center gap-1">
-                        <MapPin size={11} />
+                        <MapPin size={11} className="text-blue-500" />
                         {Number(d.latitude).toFixed(3)}, {Number(d.longitude).toFixed(3)}
                       </span>
                     ) : '—'}
                   </td>
                   <td className="py-2.5">
-                    <span className={`font-bold ${d.pothole_count > 0 ? 'text-red-600' : 'text-slate-400'}`}>
+                    <span className={`font-bold px-2 py-0.5 rounded-md ${d.pothole_count > 0 ? 'bg-red-50 text-red-600 border border-red-100' : 'text-slate-400'}`}>
                       {d.pothole_count}
                     </span>
                   </td>
-                  <td className="py-2.5">
-                    {d.avg_confidence != null
-                      ? `${(d.avg_confidence * 100).toFixed(1)}%`
+                  <td className="py-2.5 text-xs font-mono">
+                    {(d.confidence ?? d.avg_confidence) != null
+                      ? `${(((d.confidence ?? d.avg_confidence)) * 100).toFixed(1)}%`
                       : '—'}
                   </td>
                   <td className="py-2.5">
-                    <SeverityBadge severity={d.max_severity} />
+                    <SeverityBadge severity={d.estimated_severity || d.severity || d.max_severity || 'Small'} />
                   </td>
                 </tr>
               ))}

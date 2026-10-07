@@ -93,13 +93,14 @@ class ImageDetectionRequest(BaseModel):
 class FrameDetectionRequest(BaseModel):
     """Request body for live-frame detection (base64 image)."""
     image_base64:   str
-    conf_threshold: float = 0.25
+    conf_threshold: float = 0.15
     iou_threshold:  float = 0.45
     imgsz:          int   = 640
     road_name:      Optional[str] = None
     latitude:       Optional[float] = None
     longitude:      Optional[float] = None
     device:         str = "webcam"
+    save_to_db:     bool = False
 
 
 
